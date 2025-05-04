@@ -1,44 +1,80 @@
-const movies = [
-  { id: 16, name: "Dangal", genre: "Biography", language: "Hindi", rating: 4.2 },
-  { id: 17, name: "Baahubali: The Beginning", genre: "Action", language: "Telugu", rating: 4.0 },
-  { id: 18, name: "3 Idiots", genre: "Comedy", language: "Hindi", rating: 4.8 },
-  { id: 19, name: "Drishyam", genre: "Thriller", language: "Malayalam", rating: 4.8 },
-  { id: 20, name: "PK", genre: "Comedy-Drama", language: "Hindi", rating: 4.6 }
-];
+document.addEventListener("DOMContentLoaded", () => {
+  const moviesDiv = document.getElementById("movies");
+  const movieSelect = document.getElementById("movie");
+  const bookingForm = document.getElementById("bookingForm");
+  const summaryDiv = document.getElementById("summary");
 
-const moviesDiv = document.getElementById("movies");
-const movieSelect = document.getElementById("movie");
-const bookingForm = document.getElementById("bookingForm");
-const summaryDiv = document.getElementById("summary");
+  // Load movies from backend API
+  fetch('/api/movies')
+    .then(response => {
+      if (!response.ok) throw new Error('Failed to fetch movies');
+      return response.json();
+    })
+    .then(movies => {
+      moviesDiv.innerHTML = '';
+      movieSelect.innerHTML = '<option value="">Select a movie</option>';
+    
+      movies.forEach(movie => {
+        // Display movie details
+        const movieDiv = document.createElement("div");
+        movieDiv.textContent = `${movie.name} - ${movie.genre} - ${movie.language} - Rating: ${movie.rating}`;
+        moviesDiv.appendChild(movieDiv);
+    
+        // Populate dropdown
+        const option = document.createElement("option");
+        option.value = movie.id;
+        option.textContent = movie.name;
+        movieSelect.appendChild(option);
+      });
+    })
+    .catch(error => {
+      moviesDiv.textContent = `Error loading movies: ${error.message}`;
+    });
 
-// Populate movies list and dropdown
-movies.forEach(movie => {
-  const movieDiv = document.createElement("div");
-  movieDiv.textContent = `${movie.name} - ${movie.genre} - ${movie.language} - Rating: ${movie.rating}`;
-  moviesDiv.appendChild(movieDiv);
+  bookingForm.addEventListener("submit", event => {
+    event.preventDefault();
 
-  const option = document.createElement("option");
-  option.value = movie.id;
-  option.textContent = movie.name;
-  movieSelect.appendChild(option);
-});
+    const name = document.getElementById("name").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const movieId = movieSelect.value;
+    const seats = parseInt(document.getElementById("seats").value, 10);
 
-// Handle booking form submission
-bookingForm.addEventListener("submit", event => {
-  event.preventDefault();
+    if (!name || !email || !movieId || !seats) {
+      alert("Please fill in all fields.");
+      return;
+    }
 
-  const name = document.getElementById("name").value;
-  const email = document.getElementById("email").value;
-  const selectedMovie = movieSelect.options[movieSelect.selectedIndex].text;
-  const seats = document.getElementById("seats").value;
+    // Simple email validation
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(email)) {
+      alert("Please enter a valid email address.");
+      return;
+    }
 
-  summaryDiv.innerHTML = `
-    <p><strong>Name:</strong> ${name}</p>
-    <p><strong>Email:</strong> ${email}</p>
-    <p><strong>Movie:</strong> ${selectedMovie}</p>
-    <p><strong>Tickets:</strong> ${seats}</p>
-    <p>Thank you for booking with us!</p>
-  `;
+    const bookingData = { name, email, movieId, seats };
 
-  bookingForm.reset();
+    fetch('/api/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bookingData)
+    })
+    .then(response => {
+      if (!response.ok) return response.json().then(data => { throw new Error(data.error || 'Booking failed'); });
+      return response.json();
+    })
+    .then(data => {
+      const booking = data.booking;
+      summaryDiv.innerHTML = `
+        <p><strong>Name:</strong> ${booking.name}</p>
+        <p><strong>Email:</strong> ${booking.email}</p>
+        <p><strong>Movie:</strong> ${booking.movie}</p>
+        <p><strong>Tickets:</strong> ${booking.seats}</p>
+        <p><em>Booking confirmed! Thank you for booking with us.</em></p>
+      `;
+      bookingForm.reset();
+    })
+    .catch(error => {
+      alert(error.message);
+    });
+  });
 });
